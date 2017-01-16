@@ -1,0 +1,41 @@
+#!/bin/bash -e
+
+function cleanup() {
+  if [ -z "$IN_CLEANUP" ]; then
+    IN_CLEANUP="1"
+    /etc/init.d/avgd status
+    /etc/init.d/avgd stop
+    IN_CLEANUP=""
+  fi
+}
+trap cleanup EXIT TERM KILL
+
+function error() {
+  local parent_lineno="$1"
+  local message="$2"
+  local code="${3:-1}"
+  if [[ -z ${IN_CLEANUP} ]]; then
+    cleanup
+  fi
+  if [[ -n "$message" ]]; then
+    echo "Error on or near line ${parent_lineno}: ${message}; exiting with status ${code}"
+  else
+    echo "Error on or near line ${parent_lineno}; exiting with status ${code}"
+  fi
+  exit "${code}"
+}
+trap 'error ${LINENO}' ERR INT
+
+
+/etc/init.d/avgd start
+/etc/init.d/avgd status
+
+if [ $# -ge 1 ]; then
+  eval $*
+else
+  while :
+  do
+    sleep 3 &
+    wait %1
+  done
+fi
